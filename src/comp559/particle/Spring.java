@@ -15,13 +15,18 @@ import java.io.Serializable;
  */
 public class Spring implements Serializable {
 
-    Particle p1 = null;
-    Particle p2 = null;
-    
+    Particle p1;
+    Particle p2;
+    boolean visible;
+    boolean useDefaultK;
+    boolean useDefaultC;
+    double k;
+    double c;
+
     /** Spring stiffness, sometimes written k_s in equations */
-    public static double k = 1;
+    public static double default_k = 1;
     /** Spring damping (along spring direction), sometimes written k_d in equations */
-    public static double c = 1;
+    public static double default_c = 1;
     /** Rest length of this spring */
     double l0 = 0;
     
@@ -33,7 +38,30 @@ public class Spring implements Serializable {
     public Spring( Particle p1, Particle p2 ) {
         this.p1 = p1;
         this.p2 = p2;
+        this.visible = true;
+        this.useDefaultK = true;
+        this.useDefaultC = true;
         recomputeRestLength();
+        p1.springs.add(this);
+        p2.springs.add(this);
+        this.apply();
+    }
+
+    /**
+     * Constructor for invisible mouse spring
+     * @param p1
+     * @param p2
+     */
+    public Spring( Particle p1, Particle p2, double speficic_k, double speficic_c, double specific_l0, boolean vis ) {
+        this.p1 = p1;
+        this.p2 = p2;
+        this.k = speficic_k;
+        this.c = speficic_c;
+        this.l0 = specific_l0;
+        this.visible = vis;
+        this.useDefaultK = false;
+        this.useDefaultC = false;
+
         p1.springs.add(this);
         p2.springs.add(this);
         this.apply();
@@ -52,42 +80,39 @@ public class Spring implements Serializable {
      */
     public void apply() {
         // TODO: Objective 1, FINISH THIS CODE!
+
+
+
         Vector2d force = new Vector2d();
-//        System.out.print("force");
-//        System.out.println(force);
-//        System.out.print("p2.p");
-//        System.out.println(p2.p);
-//        System.out.print("p1.p");
-//        System.out.println(p1.p);
-
-        // calculate force from spring deformation
         force.sub( p2.p, p1.p );
-//        System.out.print("force after sub");
-//        System.out.println(force);
-
         double l = force.length();
-//        System.out.print("l");
-//        System.out.println(l);
-
         force.normalize();
-//        System.out.print("force after normalize");
-//        System.out.println(force);
 
-        // stiffness determines how hard the spring will try to go back to resting length
-        force.scale( (l-l0)*k );
-        p1.addForce(force);
-        force.scale(-1);
-        p2.addForce(force);
+        // force due to spring displacement from rest length
+        if (this.useDefaultK) {
+            force.scale( (l-l0)*default_k );
+        }else {
+            force.scale( (l-l0)*this.k );
+        }
 
-        // calculate force from kinetic energy
-        force.sub( p2.p, p1.p );
-        force.normalize();
+
+        Vector2d force2 = new Vector2d();
         Vector2d v = new Vector2d();
+        force2.sub( p2.p, p1.p );
+        force2.normalize();
         v.sub(p2.v, p1.v);
-        double rv = force.dot(v);
+        double rv = force2.dot(v);
 
-        // damping determines how much kinetic energy will be lost due to friction
-        force.scale(c*rv);
+        // force due to damping
+        if (this.useDefaultC) {
+            force2.scale(default_c*rv);
+        }else {
+            force2.scale(this.c*rv);
+        }
+
+        force.add(force2);
+
+        // apply force to each particle
         p1.addForce(force);
         force.scale(-1);
         p2.addForce(force);
@@ -107,7 +132,11 @@ public class Spring implements Serializable {
         force.sub( p2.p, p1.p );
         double l = force.length();
         force.normalize();
-        force.scale( (l-l0)*k );
+        if (this.useDefaultK) {
+            force.scale( (l-l0)*default_k );
+        }else {
+            force.scale( (l-l0)*this.k );
+        }
         f.add(p1.index*3,force.x);
         f.add(p1.index*3+1,force.y);
         force.scale(-1);
@@ -120,7 +149,11 @@ public class Spring implements Serializable {
         Vector2d v = new Vector2d();
         v.sub(p2.v, p1.v);
         double rv = force.dot(v);
-        force.scale(c*rv);
+        if (this.useDefaultC) {
+            force.scale(default_c*rv);
+        }else {
+            force.scale(this.c*rv);
+        }
         f.add(p1.index*3,force.x);
         f.add(p1.index*3+1,force.y);
         force.scale(-1);
@@ -161,7 +194,11 @@ public class Spring implements Serializable {
         I.scale(1 - l0/l.length());
 
         tmpM.add(I);
-        tmpM.scale(-k);
+        if (this.useDefaultK) {
+            tmpM.scale(-default_k);
+        }else {
+            tmpM.scale(-this.k);
+        }
 
         addParticle(dfdx, p1, p1, tmpM);
         addParticle(dfdx, p2, p2, tmpM);
@@ -190,7 +227,11 @@ public class Spring implements Serializable {
         tmpV.set(1,l.y/l.length());
 
         tmpM.rank1(tmpV);
-        tmpM.scale(-c);
+        if (this.useDefaultC) {
+            tmpM.scale(-default_c);
+        }else {
+            tmpM.scale(-this.c);
+        }
 
         addParticle(dfdv, p1, p1, tmpM);
         addParticle(dfdv, p2, p2, tmpM);

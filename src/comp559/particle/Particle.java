@@ -19,6 +19,8 @@ public class Particle implements Serializable {
     int index;
     
     public boolean pinned = false;
+
+    public boolean visible = true;
     
     Color3f color = new Color3f(0,.95f,0);
     
@@ -50,9 +52,39 @@ public class Particle implements Serializable {
      * @param vx
      * @param vy
      */
-    public Particle( double x, double y, double vx, double vy ) {
+    public Particle( double x, double y, double vx, double vy) {
         p0.set(x,y);
         v0.set(vx,vy);
+        reset();
+    }
+
+    /**
+     * Creates a particle with the given position and velocity and mass
+     * @param x
+     * @param y
+     * @param vx
+     * @param vy
+     */
+    public Particle( double x, double y, double vx, double vy, double p_mass) {
+        p0.set(x,y);
+        v0.set(vx,vy);
+        mass = p_mass;
+        reset();
+    }
+
+    /**
+     * Constructor for invisible particles
+     * @param x
+     * @param y
+     * @param vx
+     * @param vy
+     */
+    public Particle( double x, double y, double vx, double vy, double p_mass, boolean vis) {
+        p0.set(x,y);
+        v0.set(vx,vy);
+        mass = p_mass;
+        visible = vis;
+        pinned = true;
         reset();
     }
     

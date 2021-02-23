@@ -46,7 +46,6 @@ public class RK4 implements Integrator {
 
         derivs.derivs(t+h, k4, k4);
 
-        // based on algorithm in wikipedia
         for(int i = 0; i < n; i++)
         {
             pout[i] = p[i] + (h/6.0)*(k1[i] + 2*k2[i] + 2*k3[i] + k4[i]);

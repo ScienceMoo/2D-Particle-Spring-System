@@ -1,5 +1,6 @@
 package comp559.particle;
 
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -13,6 +14,7 @@ import javax.vecmath.Vector2d;
 
 import no.uib.cipr.matrix.DenseMatrix;
 import no.uib.cipr.matrix.DenseVector;
+import no.uib.cipr.matrix.Matrix;
 import no.uib.cipr.matrix.Vector;
 
 import mintools.parameters.BooleanParameter;
@@ -20,8 +22,17 @@ import mintools.parameters.DoubleParameter;
 import mintools.parameters.IntParameter;
 import mintools.swing.VerticalFlowPanel;
 import mintools.viewer.SceneGraphNode;
+import no.uib.cipr.matrix.sparse.FlexCompRowMatrix;
 
 import java.io.*;
+
+import java.io.FileOutputStream;
+import java.io.IOException;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 /**
  * Implementation of a simple particle system
@@ -29,23 +40,21 @@ import java.io.*;
  */
 public class ParticleSystem implements SceneGraphNode, Function, Filter {
 
-    public class ParticleSystemInfo implements Serializable {
-        public List<Particle> particles;
-        public List<Spring> springs;
-
-        public ParticleSystemInfo() {
-            particles = new LinkedList<Particle>();
-            springs = new LinkedList<Spring>();
-        }
-    }
-
-    private ParticleSystemInfo info;
+    public List<Particle> particles;
+    public List<Spring> springs;
+    private Matrix K;
+    private DenseVector x0;
+    private DenseVector v0;
+    private DenseVector xNew;
+    private DenseVector vNew;
+    private DenseVector tmp;
     
     /**
      * Creates an empty particle system
      */
     public ParticleSystem() {
-        info = new ParticleSystemInfo();
+        particles = new LinkedList<Particle>();
+        springs = new LinkedList<Spring>();
     }
 
     /**
@@ -53,68 +62,157 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
      * @param filename
      */
     public void loadSystem( String filename ) {
-        // Deserialization
         try {
+            File excel = new File("./savedSystems/" + filename);
+            FileInputStream fis = new FileInputStream(excel);
+            XSSFWorkbook book = new XSSFWorkbook(fis);
+            XSSFSheet sheet = book.getSheetAt(0);
 
-            // Reading the object from a file
-            FileInputStream file = new FileInputStream(filename);
-            ObjectInputStream in = new ObjectInputStream(file);
+            Iterator<Row> itr = sheet.iterator();
+            Row row = itr.next();
+            Iterator<Cell> cellIterator = row.cellIterator();
+            Cell cell = cellIterator.next();
+            cell = cellIterator.next();
+            int num_particles = (int) cell.getNumericCellValue();
+            row = itr.next();
 
-            // Method for deserialization of object
-            ParticleSystemInfo loadedSystem = (ParticleSystemInfo) in.readObject();
-            this.info.particles = loadedSystem.particles;
-            this.info.springs = loadedSystem.springs;
+            Particle[] loaded_particles = new Particle[num_particles];
 
-            in.close();
-            file.close();
+            // Iterating over Excel file in Java
+            int i = 0;
+            while (itr.hasNext()) {
+                row = itr.next();
+
+                // Iterating over each column of Excel file
+                cellIterator = row.cellIterator();
+                cell = cellIterator.next();
+                cell = cellIterator.next();
+                double pos_x = cell.getNumericCellValue();
+                cell = cellIterator.next();
+                double pos_y = cell.getNumericCellValue();
+                cell = cellIterator.next();
+                double mass = cell.getNumericCellValue();
+
+                Particle p = new Particle(pos_x, pos_y, 0, 0, mass);
+                p.index = i;
+                particles.add( p );
+
+                loaded_particles[i++] = p;
+            }
+
+            XSSFSheet sheet2 = book.getSheetAt(1);
+
+            Iterator<Row> itr2 = sheet2.iterator();
+            row = itr2.next();
+            cellIterator = row.cellIterator();
+            cell = cellIterator.next();
+            cell = cellIterator.next();
+            int num_springs = (int) cell.getNumericCellValue();
+            row = itr2.next();
+
+            while (itr2.hasNext()) {
+                row = itr2.next();
+
+                // Iterating over each column of Excel file
+                cellIterator = row.cellIterator();
+                cell = cellIterator.next();
+                cell = cellIterator.next();
+                int p1_index = (int) cell.getNumericCellValue();
+                cell = cellIterator.next();
+                int p2_index = (int) cell.getNumericCellValue();
+                cell = cellIterator.next();
+                double k_value = cell.getNumericCellValue();
+
+                Spring s = new Spring(loaded_particles[p1_index], loaded_particles[p2_index]);
+                springs.add(s);
+            }
+        } catch (FileNotFoundException fe) {
+            fe.printStackTrace();
+        } catch (IOException ie) {
+            ie.printStackTrace();
         }
 
-        catch (IOException ex) {
-            System.out.println("IOException is caught");
-        }
-
-        catch (ClassNotFoundException ex) {
-            System.out.println("ClassNotFoundException" +
-                    " is caught");
-        }
     }
-
-//    private void writeObject(ObjectOutputStream out) throws IOException {
-//        out.defaultWriteObject();
-//    }
-//    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-//        in.defaultReadObject();
-//    }
 
     /**
      * Saves current particle system to a file that can be loaded later
      * @param filename
      */
     public void saveSystem( String filename ) {
-        // Serialization
-        try {
+        XSSFWorkbook workbook = new XSSFWorkbook();
+        XSSFSheet sheet = workbook.createSheet("Particles");
+        XSSFSheet sheet2 = workbook.createSheet("Springs");
 
-            // create new file
-            File myObj = new File("/Users/moo/comp559W19/savedSystems/" + filename);
+        int rowCount = 0;
+        Row row = sheet.createRow(0);
+        Cell cell = row.createCell(0);
+        cell.setCellValue("Particles");
+        cell = row.createCell(1);
+        cell.setCellValue(particles.size());
 
-            // Saving of object in a file
-            FileOutputStream file = new FileOutputStream("/Users/moo/comp559W19/savedSystems/" + filename);
-            ObjectOutputStream out = new ObjectOutputStream(file);
+        row = sheet.createRow(++rowCount);
+        cell = row.createCell(0);
+        cell.setCellValue("Index");
+        cell = row.createCell(1);
+        cell.setCellValue("x");
+        cell = row.createCell(2);
+        cell.setCellValue("y");
+        cell = row.createCell(3);
+        cell.setCellValue("mass");
 
-            // Method for serialization of object
-            out.writeObject(this.info);
-            out.flush();
-            out.close();
-//            file.close();
+        for (Particle p : particles) {
+            row = sheet.createRow(++rowCount);
+
+            cell = row.createCell(0);
+            cell.setCellValue(p.index);
+            cell = row.createCell(1);
+            cell.setCellValue(p.p0.x);
+            cell = row.createCell(2);
+            cell.setCellValue(p.p0.y);
+            cell = row.createCell(3);
+            cell.setCellValue(p.mass);
 
         }
 
-        catch (IOException ex) {
-            System.out.println("IOException is caught");
-            System.out.println(ex.getCause());
-            System.out.println(ex.getStackTrace());
-            System.out.println(ex.getMessage());
-            System.out.println("IOException is caught 2");
+        rowCount = 0;
+        row = sheet2.createRow(0);
+        cell = row.createCell(0);
+        cell.setCellValue("Springs");
+        cell = row.createCell(1);
+        cell.setCellValue(springs.size());
+
+        row = sheet2.createRow(++rowCount);
+        cell = row.createCell(0);
+        cell.setCellValue("Index");
+        cell = row.createCell(1);
+        cell.setCellValue("p1");
+        cell = row.createCell(2);
+        cell.setCellValue("p2");
+        cell = row.createCell(3);
+        cell.setCellValue("k");
+
+        for (Spring s : springs) {
+            row = sheet2.createRow(++rowCount);
+
+            cell = row.createCell(0);
+            cell.setCellValue(rowCount - 2);
+            cell = row.createCell(1);
+            cell.setCellValue(s.p1.index);
+            cell = row.createCell(2);
+            cell.setCellValue(s.p2.index);
+            cell = row.createCell(3);
+            cell.setCellValue(s.k);
+
+        }
+
+        try {
+            File file = new File("./savedSystems/" + filename);
+            FileOutputStream outputStream = new FileOutputStream(file);
+            workbook.write(outputStream);
+        } catch (FileNotFoundException fe) {
+            fe.printStackTrace();
+        } catch (IOException ie) {
+            ie.printStackTrace();
         }
     }
 
@@ -129,12 +227,12 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
             Vector2d d = new Vector2d( 20, 0 );            
             Particle p1, p2, p3, p4;
             p1 = new Particle( p.x - d.y, p.y + d.x, 0, 0 );
-            p1.index = info.particles.size();
-            info.particles.add( p1 );
+            p1.index = particles.size();
+            particles.add( p1 );
             p2 = new Particle( p.x + d.y, p.y - d.x, 0, 0 );
-            p2.index = info.particles.size();
-            info.particles.add( p2 );
-            info.springs.add( new Spring ( p1, p2 ) );
+            p2.index = particles.size();
+            particles.add( p2 );
+            springs.add( new Spring ( p1, p2 ) );
             p1.pinned = true;
             p2.pinned = true;            
             p.add( d );
@@ -143,16 +241,16 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
             for (int i = 1; i < N; i++ ) {                
                 //d.set( 20*Math.cos(i*Math.PI/N), 20*Math.sin(i*Math.PI/N) );                
                 p3 = new Particle( p.x - d.y, p.y + d.x, 0, 0 );
-                p3.index = info.particles.size();
-                info.particles.add( p3 );
+                p3.index = particles.size();
+                particles.add( p3 );
                 p4 = new Particle( p.x + d.y, p.y - d.x, 0, 0 );
-                p4.index = info.particles.size();
-                info.particles.add( p4 );
-                info.springs.add( new Spring ( p3, p1 ) );
-                info.springs.add( new Spring ( p3, p2 ) );
-                info.springs.add( new Spring ( p4, p1 ) );
-                info.springs.add( new Spring ( p4, p2 ) );
-                info.springs.add( new Spring ( p4, p3 ) );
+                p4.index = particles.size();
+                particles.add( p4 );
+                springs.add( new Spring ( p3, p1 ) );
+                springs.add( new Spring ( p3, p2 ) );
+                springs.add( new Spring ( p4, p1 ) );
+                springs.add( new Spring ( p4, p2 ) );
+                springs.add( new Spring ( p4, p3 ) );
                 p1 = p3;
                 p2 = p4;                
                 p.add( d );
@@ -160,31 +258,31 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
             }
         } else if ( which == 2) {
             Particle p1 = new Particle( 320, 100, 0, 0 );
-            p1.index = info.particles.size();
-            info.particles.add( p1 );
+            p1.index = particles.size();
+            particles.add( p1 );
             Particle p2 = new Particle( 320, 200, 0, 0 );
-            p2.index = info.particles.size();
-            info.particles.add( p2 );
+            p2.index = particles.size();
+            particles.add( p2 );
             p1.pinned = true;
-            info.springs.add( new Spring( p1, p2 ) );
+            springs.add( new Spring( p1, p2 ) );
         } else if ( which == 3 ) {
             int ypos = 100;
             Particle p0 = null;
             Particle p1, p2;
             p1 = new Particle( 320, ypos, 0, 0 );
-            p1.index = info.particles.size();
+            p1.index = particles.size();
             p1.pinned = true;
-            info.particles.add( p1 );
+            particles.add( p1 );
             int N = 10;
             for ( int i = 0; i < N; i++ ) {
                 ypos += 20;
                 p2 = new Particle( 320, ypos, 0, 0 );
-                p2.index = info.particles.size();
-                info.particles.add( p2 );
-                info.springs.add( new Spring( p1, p2 ) );
+                p2.index = particles.size();
+                particles.add( p2 );
+                springs.add( new Spring( p1, p2 ) );
                 // Hum.. this is not great in comparison to a proper bending energy...
                 // use Maple to generate some code though, as it is painful to write by hand! :(
-                if ( p0 != null ) info.springs.add( new Spring( p2, p0 ) );
+                if ( p0 != null ) springs.add( new Spring( p2, p0 ) );
                 p0 = p1;
                 
                 p1 = p2;
@@ -197,7 +295,7 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
      * @return the particle set
      */
     public List<Particle> getParticles() {
-        return info.particles;
+        return particles;
     }
     
     /**
@@ -205,14 +303,14 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
      * @return the spring list
      */
     public List<Spring> getSprings() {
-    	return info.springs;
+    	return springs;
     }
     
     /**
      * Resets the positions of all particles
      */
     public void resetParticles() {
-        for ( Particle p : info.particles ) {
+        for ( Particle p : particles ) {
             p.reset();
         }
         time = 0;
@@ -222,8 +320,8 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
      * Deletes all particles
      */
     public void clearParticles() {
-        info.particles.clear();
-        info.springs.clear();
+        particles.clear();
+        springs.clear();
     }
     
     /**
@@ -232,7 +330,7 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
      */
     public void getPhaseSpace( double[] phaseSpaceState ) {
         int count = 0;
-        for ( Particle p : info.particles ) {
+        for ( Particle p : particles ) {
             phaseSpaceState[count++] = p.p.x;
             phaseSpaceState[count++] = p.p.y;
             phaseSpaceState[count++] = p.v.x;
@@ -247,7 +345,7 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
      */
     public int getPhaseSpaceDim() {        
 
-        return info.particles.size() * 4;
+        return particles.size() * 4;
     }
     
     /**
@@ -256,7 +354,7 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
      */
     public void setPhaseSpace( double[] phaseSpaceState ) {
         int count = 0;
-        for ( Particle particle : info.particles ) {
+        for ( Particle particle : particles ) {
             if ( particle.pinned ) {
                 count += 4;
             } else {
@@ -272,32 +370,32 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
      * Fixes positions and velocities after a step to deal with collisions 
      */
     public void postStepFix() {
-        for ( Particle p : info.particles ) {
+        for ( Particle p : particles ) {
             if ( p.pinned ) {
                 p.v.set(0,0);
             }
         }
         // do wall collisions
         double r = restitution.getValue();
-        for ( Particle p : info.particles ) {
-            if ( p.p.x <= 0 ) {
-                p.p.x = 0;
+        for ( Particle p : particles ) {
+            if ( p.p.x - (5 * p.mass) <= 0 ) {
+                p.p.x = (5 * p.mass);
                 if ( p.v.x < 0 ) p.v.x = - p.v.x * r;
                 if ( p.f.x < 0 ) p.f.x = 0;                
             }
-            if ( p.p.x >= width ) {
-                p.p.x = width;
+            if ( p.p.x >= width - (5 * p.mass) ) {
+                p.p.x = width - (5 * p.mass);
                 if (p.v.x > 0 ) p.v.x = - p.v.x * r;
                 if (p.f.x > 0 ) p.f.x = 0;
             } 
             
-            if ( p.p.y >= height ) {
-                p.p.y = height;
+            if ( p.p.y >= height - (5 * p.mass) ) {
+                p.p.y = height - (5 * p.mass);
                 if ( p.v.y > 0 ) p.v.y = - p.v.y * r;
                 if ( p.f.y > 0 ) p.f.y = 0;
             } 
-            if ( p.p.y <= 0 ) {
-                p.p.y = 0;
+            if ( p.p.y - (5 * p.mass) <= 0 ) {
+                p.p.y = (5 * p.mass);
                 if ( p.v.y < 0 ) p.v.y = - p.v.y * r;
                 if ( p.f.y < 0 ) p.f.y = 0;
             }
@@ -328,7 +426,7 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
      * Allocates the arrays and vectors necessary for the solve of the full system
      */
     public void init() {
-        int N = info.particles.size();
+        int N = particles.size();
         // create matrix and vectors for solve
         CG = new ConjugateGradientMTJ(2*N);
         CG.setFilter(this);
@@ -346,7 +444,7 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
      * @param xd
      */
     private void getVelocities(DenseVector xd) {
-        for ( Particle p : info.particles ) {
+        for ( Particle p : particles ) {
             int j = p.index * 2;
             if( p.pinned ) {
                 xd.set( j, 0 );
@@ -363,7 +461,7 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
      * @param xd
      */
     private void setVelocities(DenseVector xd) {
-        for ( Particle p : info.particles ) {
+        for ( Particle p : particles ) {
             int j = p.index * 2;
             if( p.pinned ) {
                 p.v.set(0,0);
@@ -387,28 +485,30 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
         
         // TODO: Objective 2, for explicit integrators, compute forces, and accelerations, and set dpdt
 
-        for(Particle particle: info.particles)
+        for(Particle particle: particles)
         {
             particle.clearForce();
 
+            // apply force due to gravity on each particle
             if(useGravity.getValue())
             {
                 particle.f.y = gravity.getValue() * particle.mass;
             }
 
+            // viscous damping is a force directly applied by the environment
             particle.f.x -= viscousDamping.getValue() * particle.v.x;
             particle.f.y -= viscousDamping.getValue() * particle.v.y;
         }
 
-        for(Spring s: info.springs)
+        for(Spring s: springs)
         {
-            // Applies the spring force by adding a force to each particle
+            // Applies the spring force by adding an equal force to each particle
             s.apply();
         }
 
         // overwrite dpdt
         int i = 0;
-        for(Particle particle: info.particles)
+        for(Particle particle: particles)
         {
             dpdt[i++] = particle.v.x;
             dpdt[i++] = particle.v.y;
@@ -427,8 +527,8 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
      * @param elapsed
      */
     public void advanceTime( double elapsed ) {
-        Spring.k = springStiffness.getValue();
-        Spring.c = springDamping.getValue();
+        Spring.default_k = springStiffness.getValue();
+        Spring.default_c = springDamping.getValue();
             
         int n = getPhaseSpaceDim();
         
@@ -447,14 +547,19 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
             if ( f == null || f.size() != n ) {
                 init();
             }
+            if ( n != state.length ) {
+                state = new double[n];
+                stateOut = new double[n];
+            }
             
             // TODO: Objective 8, your backward Euler implementation will go here!
             // Note that the init() method called above creates a bunch of very 
             // useful MTJ working variables for you, and the ConjugateGradientMTJ object.
             // Go look at that code now!
-            
-            
-            
+
+            getPhaseSpace(state);
+            backwardEuler(state, n, elapsed, stateOut);
+            setPhaseSpace(stateOut);
             
         }
         time = time + elapsed;
@@ -464,7 +569,7 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
     
     @Override
     public void filter(Vector v) {
-        for ( Particle p : info.particles ) {
+        for ( Particle p : particles ) {
             if ( !p.pinned ) continue;
             v.set( p.index*2+0, 0 );
             v.set( p.index*2+1, 0 );
@@ -480,9 +585,24 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
      * @return the new particle
      */
     public Particle createParticle( double x, double y, double vx, double vy ) {
-        Particle p = new Particle( x, y, vx, vy );
-        p.index = info.particles.size();
-        info.particles.add( p );
+        Particle p = new Particle( x, y, vx, vy, mass.getValue());
+        p.index = particles.size();
+        particles.add( p );
+        return p;
+    }
+
+    /**
+     * Creates an imaginary mouse particle and adds it to the system
+     * @param x
+     * @param y
+     * @param vx
+     * @param vy
+     * @return the new particle
+     */
+    public Particle createMouseParticle( double x, double y, double vx, double vy ) {
+        Particle p = new Particle( x, y, vx, vy,1,false );
+        p.index = particles.size();
+        particles.add( p );
         return p;
     }
     
@@ -490,13 +610,13 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
     	for ( Spring s : p.springs ) {
     		Particle other = s.p1 == p ? s.p2 : s.p1; 
     		other.springs.remove( s );
-            info.springs.remove( s );
+            springs.remove( s );
     	}
     	p.springs.clear(); // not really necessary
-        info.particles.remove( p );
+        particles.remove( p );
     	// reset indices of each particle :(
-    	for ( int i = 0 ; i < info.particles.size(); i++ ) {
-            info.particles.get(i).index = i;
+    	for ( int i = 0 ; i < particles.size(); i++ ) {
+            particles.get(i).index = i;
     	}
     }
     
@@ -508,7 +628,19 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
      */
     public Spring createSpring( Particle p1, Particle p2 ) {
         Spring s = new Spring( p1, p2 );
-        info.springs.add( s );
+        springs.add( s );
+        return s;
+    }
+
+    /**
+     * Creates the mouse spring between two particles and adds it to the system.
+     * @param p1
+     * @param p2
+     * @return the new spring
+     */
+    public Spring createMouseSpring( Particle p1, Particle p2, double k, double c, double l0) {
+        Spring s = new Spring( p1, p2, k, c, l0, false);
+        springs.add( s );
         return s;
     }
     
@@ -520,7 +652,7 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
      */
     public boolean removeSpring( Particle p1, Particle p2 ) {
     	Spring found = null;
-    	for ( Spring s : info.springs ) {
+    	for ( Spring s : springs ) {
     		if ( ( s.p1 == p1 && s.p2 == p2 ) || ( s.p1 == p2 && s.p2 == p1 ) ) {
     			found = s;
     			break;
@@ -529,11 +661,77 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
     	if ( found != null ) {
     		found.p1.springs.remove(found);
     		found.p2.springs.remove(found);
-            info.springs.remove(found);
+            springs.remove(found);
 			return true;
     	}
     	return false;
     }
+
+
+    private void backwardEuler(double[] state, int n, double h, double[] stateOut)
+    {
+        int N = particles.size();
+        x0 = new DenseVector(2*N);
+        v0 = new DenseVector(2*N);
+        xNew = new DenseVector(2*N);
+        vNew = new DenseVector(2*N);
+        tmp = new DenseVector(2*N);
+
+        for(int i = 0; i < 2*N; i++)
+        {
+            A.set(i, i, 1.0);
+        }
+
+        for(int i = 0; i < state.length; i+=6)
+        {
+            int j = i/2;
+            x0.set(j, state[i]);
+            x0.set(j+1, state[i+1]);
+            x0.set(j+2, state[i+2]);
+            v0.set(j, state[i+3]);
+            v0.set(j+1, state[i+4]);
+            v0.set(j+2, state[i+5]);
+        }
+
+        for(Spring s: springs)
+        {
+            // apply all the spring forces
+            s.addForce(f);
+            s.addDfdx(dfdx);
+            s.addDfdv(dfdv);
+        }
+
+        for(Particle p: particles)
+        {
+            f.add(p.index*3, -viscousDamping.getValue() * p.v.x);
+            f.add(p.index*3+1, -viscousDamping.getValue() * p.v.y);
+            f.add(p.index*3+1, gravity.getValue() * p.mass);
+        }
+
+        dfdx.mult(v0, tmp);
+        K.set(A.add(dfdv.scale(-h)).add(dfdx.scale(-h*h)));
+        b.set(f.add(tmp.scale(h)).scale(h));
+
+        CG.solve(K, b, deltaxdot, iterations.getValue());
+
+        vNew.set(v0.add(deltaxdot));
+        tmp.set(vNew);
+        xNew.set(x0.add(tmp.scale(h)));
+
+        for(int i = 0; i < stateOut.length; i+=6)
+        {
+            int j = i/2;
+            stateOut[i] = xNew.get(j);
+            stateOut[i+1] = xNew.get(j+1);
+            stateOut[i+2] = xNew.get(j+2);
+            stateOut[i+3] = vNew.get(j);
+            stateOut[i+4] = vNew.get(j+1);
+            stateOut[i+5] = vNew.get(j+2);
+        }
+    }
+
+
+
     
     @Override
     public void init(GLAutoDrawable drawable) {
@@ -551,29 +749,42 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
         height = drawable.getSurfaceHeight();
         width = drawable.getSurfaceWidth();
         
-        gl.glPointSize( 10 );
-        gl.glBegin( GL.GL_POINTS );
-        for ( Particle p : info.particles ) {
+//        gl.glPointSize( 10 );
+
+        for ( Particle p : particles ) {
             double alpha = 0.5;
-            if ( p.pinned ) {
-                gl.glColor4d( 1, 0, 0, alpha );
-            } else {
-                gl.glColor4d( p.color.x, p.color.y, p.color.z, alpha );
+            if (p.visible) {
+                Vector2d v = new Vector2d(p.v.x, p.v.y);
+                v.absolute();
+                if ( p.pinned ) {
+                    gl.glColor4d( 1, 1, 1, alpha );
+//                    gl.glColor4d( v.x, v.y, 1, alpha );
+
+                } else {
+//                    gl.glColor4d( p.color.x, p.color.y, p.color.z, alpha );
+                    gl.glColor4d( v.x, v.y, 1, alpha );
+                }
+                float sz = (float) (p.mass * 10);
+                gl.glPointSize( sz );
+                gl.glBegin( GL.GL_POINTS );
+                gl.glVertex2d( p.p.x, p.p.y );
+                gl.glEnd();
             }
-            gl.glVertex2d( p.p.x, p.p.y );
         }
-        gl.glEnd();
-        
+
         gl.glColor4d(0,.5,.5,.5);
         gl.glLineWidth(2f);
         gl.glBegin( GL.GL_LINES );
-        for (Spring s : info.springs) {
-            gl.glVertex2d( s.p1.p.x, s.p1.p.y );
-            gl.glVertex2d( s.p2.p.x, s.p2.p.y );
+        for (Spring s : springs) {
+            if (s.visible) {
+                gl.glVertex2d( s.p1.p.x, s.p1.p.y );
+                gl.glVertex2d( s.p2.p.x, s.p2.p.y );
+            }
         }
         gl.glEnd();
     }
-    
+
+    public DoubleParameter mass = new DoubleParameter( "mass", 1, 0.1, 100 );
     public BooleanParameter useGravity = new BooleanParameter( "use gravity", true );
     public DoubleParameter gravity = new DoubleParameter( "gravity", 9.8, 0.01, 1000 );
     public DoubleParameter springStiffness = new DoubleParameter( "spring stiffness", 1, 0, 10000 );
@@ -590,6 +801,7 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
         VerticalFlowPanel vfp = new VerticalFlowPanel();
         vfp.add( comments );
         vfp.add( useGravity.getControls() );
+        vfp.add( mass.getSliderControls(true) );
         vfp.add( gravity.getSliderControls(true) );
         vfp.add( springStiffness.getSliderControls(false) );
         vfp.add( springDamping.getSliderControls(false) );
@@ -604,7 +816,7 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
     public String toString() {
         String ret = "Marie Cornellier\n" +
                      comments.getText() + "\n" +
-                     "particles = " + info.particles.size() + "\n";
+                     "particles = " + particles.size() + "\n";
         if ( explicit.getValue() ) {
             ret += "integrator = " + integrator.getName() + "\n";
         } else {
