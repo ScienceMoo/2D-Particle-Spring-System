@@ -117,7 +117,7 @@ public class A1App implements SceneGraphNode, Interactor {
     public void display(GLAutoDrawable drawable) {
         GL2 gl = drawable.getGL().getGL2();
         EasyViewer.beginOverlay(drawable);
-        
+
         if ( run.getValue() ) {
             for ( int i = 0; i < substeps.getValue(); i++ ) {
                 system.advanceTime( stepsize.getValue() / substeps.getValue() );                
@@ -139,15 +139,22 @@ public class A1App implements SceneGraphNode, Interactor {
                 	}
                 	if ( closeToParticlePairLine ) {
                 		gl.glColor4d(0,1,1,.5);
-                        gl.glLineWidth(3f);
+                        //TODO: dpi stuff
+                        gl.glLineWidth(2 * 3f);
                         gl.glBegin( GL.GL_LINES );
+                        //TODO: dpi stuff
+//                        gl.glVertex2d( dpi_x_factor * p1.p.x, dpi_y_factor * p1.p.y );
+//                        gl.glVertex2d( dpi_x_factor * p2.p.x, dpi_y_factor * p2.p.y );
                         gl.glVertex2d( p1.p.x, p1.p.y );
                         gl.glVertex2d( p2.p.x, p2.p.y );
                         gl.glEnd();
                 	} else {
 	                    gl.glPointSize( 5f );
 	                    gl.glLineWidth( 2f );
-	                    if ( ! run.getValue() ) {                      
+	                    if ( ! run.getValue() ) {   
+	                        //TODO: dpi stuff
+//	                        drawLineToParticle( drawable, 2 * xcurrent, 2 * ycurrent, p1, d1 );
+//	                        drawLineToParticle( drawable, 2 * xcurrent, 2 * ycurrent, p2, d2 );
 	                        drawLineToParticle( drawable, xcurrent, ycurrent, p1, d1 );
 	                        drawLineToParticle( drawable, xcurrent, ycurrent, p2, d2 );
 	                    }
@@ -162,11 +169,14 @@ public class A1App implements SceneGraphNode, Interactor {
             }
         } else {
             if ( mouseInWindow ) {
+                //TODO: dpi stuff
+//                findCloseParticles( 2 * xcurrent, 2 * ycurrent );
                 findCloseParticles( xcurrent, ycurrent );
                 if ( p1 != null && d1 < (5 * p1.mass) ) {
                     gl.glPointSize( (float) (p1.mass * 15) );
                     gl.glColor4d(0,1,0,0.95);
                     gl.glBegin( GL.GL_POINTS );
+                    //TODO: dpi stuff
                     gl.glVertex2d( p1.p.x, p1.p.y );
                     gl.glEnd();        
                 } else if ( p1 != null && p2 != null ) {
@@ -177,8 +187,12 @@ public class A1App implements SceneGraphNode, Interactor {
                 	closeToParticlePairLine = d < (5 * p1.mass);
                 	if ( closeToParticlePairLine ) {
                         gl.glColor4d(0,1,1,.5);
-                        gl.glLineWidth(3f);
+                        //TODO: dpi stuff
+                        gl.glLineWidth(2 * 3f);
                         gl.glBegin( GL.GL_LINES );
+                        //TODO: dpi stuff
+//                        gl.glVertex2d( dpi_x_factor * p1.p.x, dpi_y_factor * p1.p.y );
+//                        gl.glVertex2d( dpi_x_factor * p2.p.x, dpi_y_factor * p2.p.y );
                         gl.glVertex2d( p1.p.x, p1.p.y );
                         gl.glVertex2d( p2.p.x, p2.p.y );
                         gl.glEnd();
@@ -250,6 +264,8 @@ public class A1App implements SceneGraphNode, Interactor {
         gl.glColor4d( 1-col,0,col,0.75f);
         gl.glBegin(GL.GL_LINES);
         gl.glVertex2d( x, y );
+        //TODO: dpi stuff
+//        gl.glVertex2d( dpi_x_factor * p.p.x, dpi_y_factor * p.p.y );
         gl.glVertex2d( p.p.x, p.p.y );
         gl.glEnd();    
     }
@@ -419,10 +435,10 @@ public class A1App implements SceneGraphNode, Interactor {
             @Override
             public void mouseDragged(MouseEvent e) {
 
-
-                xcurrent = e.getPoint().x;
-                ycurrent = e.getPoint().y;
-                p_current.set(e.getPoint().x, e.getPoint().y);
+                //TODO: dpi stuff
+                xcurrent = (int) (2 * e.getPoint().x);
+                ycurrent = (int) (2 * e.getPoint().y);
+                p_current.set(xcurrent, ycurrent);
 
                 if ( grabbed ) {
                     if ( run.getValue() ) {
@@ -449,13 +465,18 @@ public class A1App implements SceneGraphNode, Interactor {
                         }
                     }
                 } else {
-                    findCloseParticles(xcurrent, ycurrent);
+                    //TODO: dpi stuff
+//                    findCloseParticles( 2 * xcurrent, 2 * ycurrent );
+                    findCloseParticles( xcurrent, ycurrent );
                 }
             }
             @Override
             public void mouseMoved(MouseEvent e) {
-                xcurrent = e.getPoint().x;
-                ycurrent = e.getPoint().y;
+                //TODO: dpi stuff
+                xcurrent = (int) (2 * e.getPoint().x);
+                ycurrent = (int) (2 * e.getPoint().y);
+//                xcurrent = e.getPoint().x;
+//                ycurrent = e.getPoint().y;
             }
         } );
         component.addMouseListener( new MouseListener() {
@@ -476,12 +497,17 @@ public class A1App implements SceneGraphNode, Interactor {
             @Override
             public void mousePressed(MouseEvent e) {
                 mouseInWindow = true;
-                xdown = e.getPoint().x;
-                ydown = e.getPoint().y;
-                xcurrent = xdown;
-                ycurrent = ydown;
+                //TODO: dpi stuff
+                xcurrent = (int) (2 * e.getPoint().x);
+                ycurrent = (int) (2 * e.getPoint().y);
+//                xdown = e.getPoint().x;
+//                ydown = e.getPoint().y;
+//                xcurrent = xdown;
+//                ycurrent = ydown;
                 mouseDown = true;
-                findCloseParticles(xcurrent, ycurrent);
+                //TODO: dpi stuff
+//                findCloseParticles( 2 * xcurrent, 2 * ycurrent );
+                findCloseParticles( xcurrent, ycurrent );
                 if ( p1 != null && d1 < (5 * p1.mass) ) {
                     wasPinned = p1.pinned;
                     grabbed = true;
@@ -494,8 +520,9 @@ public class A1App implements SceneGraphNode, Interactor {
                 mouseDown = false;
                 
                 	if ( ! grabbed && ! run.getValue() ) {
-	                    double x = e.getPoint().x;
-	                    double y = e.getPoint().y;
+                	    //TODO: dpi stuff
+	                    double x = 2 * e.getPoint().x;
+	                    double y = 2 * e.getPoint().y;
 	                    // were we within the threshold of a spring?
 	                    if ( closeToParticlePairLine ) {
 	                    	if ( !system.removeSpring( p1, p2 ) ) {
@@ -508,7 +535,7 @@ public class A1App implements SceneGraphNode, Interactor {
 		                    }
 		                    if ( p2 != null && d2 < maxDist ) {
 		                        system.createSpring( p, p2 );
-		                    }  
+		                    }
 	                    }
 	                } else if ( grabbed && p1 != null && ( !moved ) ) {
 	                	p1.pinned = ! wasPinned;
@@ -579,7 +606,9 @@ public class A1App implements SceneGraphNode, Interactor {
                     ev.stop();
                 }
                 else if ( e.getKeyCode() == KeyEvent.VK_DELETE ) {
-                	findCloseParticles( xcurrent, ycurrent );
+                    //TODO: dpi stuff
+//                    findCloseParticles( 2 * xcurrent, 2 * ycurrent );
+                    findCloseParticles( xcurrent, ycurrent );
                     if ( p1 != null && d1 < (5 * p1.mass) ) {
                 		system.remove( p1 );
                 	}
