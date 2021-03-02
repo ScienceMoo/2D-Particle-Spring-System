@@ -59,11 +59,11 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
 
     /**
      * Create a saved test system from the file
-     * @param filename
+     * @param file_location
      */
-    public void loadSystem( String filename ) {
+    public void loadSystem( String file_location ) {
         try {
-            File excel = new File("./savedSystems/" + filename);
+            File excel = new File(file_location);
             FileInputStream fis = new FileInputStream(excel);
             XSSFWorkbook book = new XSSFWorkbook(fis);
             XSSFSheet sheet = book.getSheetAt(0);
@@ -377,25 +377,26 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
         }
         // do wall collisions
         double r = restitution.getValue();
+        // TODO: dpi stuff
         for ( Particle p : particles ) {
-            if ( p.p.x - (5 * p.mass) <= 0 ) {
-                p.p.x = (5 * p.mass);
+            if ( p.p.x - (5 * p.mass / 2) <= 0 ) {
+                p.p.x = (5 * p.mass / 2);
                 if ( p.v.x < 0 ) p.v.x = - p.v.x * r;
                 if ( p.f.x < 0 ) p.f.x = 0;                
             }
-            if ( p.p.x >= width - (5 * p.mass) ) {
-                p.p.x = width - (5 * p.mass);
+            if ( p.p.x >= width - (5 * p.mass / 2) ) {
+                p.p.x = width - (5 * p.mass / 2);
                 if (p.v.x > 0 ) p.v.x = - p.v.x * r;
                 if (p.f.x > 0 ) p.f.x = 0;
             } 
             
-            if ( p.p.y >= height - (5 * p.mass) ) {
-                p.p.y = height - (5 * p.mass);
+            if ( p.p.y >= height - (5 * p.mass / 2) ) {
+                p.p.y = height - (5 * p.mass / 2);
                 if ( p.v.y > 0 ) p.v.y = - p.v.y * r;
                 if ( p.f.y > 0 ) p.f.y = 0;
             } 
-            if ( p.p.y - (5 * p.mass) <= 0 ) {
-                p.p.y = (5 * p.mass);
+            if ( p.p.y - (5 * p.mass / 2) <= 0 ) {
+                p.p.y = (5 * p.mass / 2);
                 if ( p.v.y < 0 ) p.v.y = - p.v.y * r;
                 if ( p.f.y < 0 ) p.f.y = 0;
             }
@@ -788,7 +789,7 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
     public DoubleParameter springStiffness = new DoubleParameter( "spring stiffness", 1, 0, 10000 );
     public DoubleParameter springDamping = new DoubleParameter( "spring damping", 0.1, 0, 50 );
     public DoubleParameter viscousDamping = new DoubleParameter( "viscous damping", 0.1, 0, 10 );
-    public DoubleParameter restitution = new DoubleParameter( "r", 0, 0, 1 );
+    public DoubleParameter restitution = new DoubleParameter( "r", 0.5, 0, 1 );
     public JTextArea comments = new JTextArea("enter comments in control panel");
     public IntParameter iterations = new IntParameter( "iterations", 100, 1, 100 );
     /** controls weather explicit or implicit integration is used */

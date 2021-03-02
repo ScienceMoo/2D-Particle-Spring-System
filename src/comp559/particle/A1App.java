@@ -27,6 +27,7 @@ import javax.vecmath.Vector2d;
 import mintools.parameters.BooleanParameter;
 import mintools.parameters.DoubleParameter;
 import mintools.parameters.IntParameter;
+import mintools.swing.FileSelect;
 import mintools.swing.HorizontalFlowPanel;
 import mintools.swing.VerticalFlowPanel;
 import mintools.viewer.EasyViewer;
@@ -111,6 +112,8 @@ public class A1App implements SceneGraphNode, Interactor {
 
         menuBar.add(menu);
         ev.frame.setJMenuBar(menuBar);
+
+        system.loadSystem( "./savedSystems/spider_ball.xlsx" );
     }
         
     @Override
@@ -270,8 +273,6 @@ public class A1App implements SceneGraphNode, Interactor {
         gl.glEnd();    
     }
 
-    private ArrayList fileNames;
-    private JComboBox fileList;
     private JTextField saveFileName = new JTextField("testSystem.xlsx", 16);
     private BooleanParameter run = new BooleanParameter( "simulate", false );
     private DoubleParameter stepsize = new DoubleParameter( "step size", 0.05, 1e-5, 1 );
@@ -279,23 +280,6 @@ public class A1App implements SceneGraphNode, Interactor {
 
     @Override
     public JPanel getControls() {
-        fileNames = new ArrayList();
-        final File folder = new File("./savedSystems/");
-        if (folder.listFiles() != null) {
-            for (final File fileEntry : folder.listFiles()) {
-                if (fileEntry.isFile()) {
-                    fileNames.add(fileEntry.getName());
-                }
-            }
-        }
-        String[] fileNamesComboBox = new String[fileNames.size()];
-        int i = 0;
-        for (Object name : fileNames) {
-            fileNamesComboBox[i++] = (String) name;
-        }
-
-        fileList = new JComboBox(fileNamesComboBox);
-
         HorizontalFlowPanel hfp0 = new HorizontalFlowPanel();
         hfp0.add( saveFileName );
 
@@ -303,11 +287,19 @@ public class A1App implements SceneGraphNode, Interactor {
         hfp0.add( saveButton );
 
         HorizontalFlowPanel hfp02 = new HorizontalFlowPanel();
-        hfp02.add( fileList );
 
         JButton loadButton = new JButton("Load particle system");
-        hfp02.add( loadButton );
+        loadButton.addActionListener( new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                File f = FileSelect.select("xlsx", "", "load", "./savedSystems", true );
+                if ( f != null ) {
+                    system.loadSystem( f.getPath() );
+                }
+            }
+        });
 
+        hfp02.add( loadButton );
 
         VerticalFlowPanel vfp = new VerticalFlowPanel();
         vfp.add( hfp0.getPanel() );
@@ -317,13 +309,6 @@ public class A1App implements SceneGraphNode, Interactor {
             @Override
             public void actionPerformed(ActionEvent e) {
                 system.saveSystem(saveFileName.getText());
-            }
-        });
-
-        loadButton.addActionListener( new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                system.loadSystem(fileList.getSelectedItem().toString());
             }
         });
 
@@ -445,6 +430,7 @@ public class A1App implements SceneGraphNode, Interactor {
                         // TODO: objective 9, mouse spring interaction
 
                         if ( !moved ) {
+                            // create an invisible mouse particle to represent the mouse
                             p2 = system.createMouseParticle(xcurrent, ycurrent, 0, 0);
                             system.createMouseSpring(p1, p2, k, c, l0);
                             moved = true;
