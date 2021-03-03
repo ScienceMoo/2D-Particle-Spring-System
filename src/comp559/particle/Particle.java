@@ -68,7 +68,8 @@ public class Particle implements Serializable {
     public Particle( double x, double y, double vx, double vy, double p_mass) {
         p0.set(x,y);
         v0.set(vx,vy);
-        mass = p_mass;
+        //TODO: dpi stuff
+        mass = p_mass * 2;
         reset();
     }
 
@@ -82,7 +83,8 @@ public class Particle implements Serializable {
     public Particle( double x, double y, double vx, double vy, double p_mass, boolean vis) {
         p0.set(x,y);
         v0.set(vx,vy);
-        mass = p_mass;
+        //TODO: dpi stuff
+        mass = p_mass * 2;
         visible = vis;
         pinned = true;
         reset();
