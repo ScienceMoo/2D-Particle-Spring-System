@@ -14,7 +14,6 @@ import javax.vecmath.Vector2d;
 
 import no.uib.cipr.matrix.DenseMatrix;
 import no.uib.cipr.matrix.DenseVector;
-import no.uib.cipr.matrix.Matrix;
 import no.uib.cipr.matrix.Vector;
 
 import mintools.parameters.BooleanParameter;
@@ -42,7 +41,6 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
 
     public List<Particle> particles;
     public List<Spring> springs;
-    private Matrix K;
     private DenseVector x0;
     private DenseVector v0;
     private DenseVector xNew;
@@ -59,11 +57,11 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
 
     /**
      * Create a saved test system from the file
-     * @param filename
+     * @param file_location
      */
-    public void loadSystem( String filename ) {
+    public void loadSystem( String file_location ) {
         try {
-            File excel = new File("./savedSystems/" + filename);
+            File excel = new File(file_location);
             FileInputStream fis = new FileInputStream(excel);
             XSSFWorkbook book = new XSSFWorkbook(fis);
             XSSFSheet sheet = book.getSheetAt(0);
@@ -414,6 +412,7 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
     // these get created in init() and are probably useful for Backward Euler computations
     private ConjugateGradientMTJ CG;
     private DenseMatrix A;
+    private FlexCompRowMatrix I;
     private DenseMatrix dfdx;
     private DenseMatrix dfdv;
     private DenseVector deltaxdot;
@@ -431,6 +430,7 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
         CG = new ConjugateGradientMTJ(2*N);
         CG.setFilter(this);
         A = new DenseMatrix(2*N, 2*N);
+        I = new FlexCompRowMatrix(2*N, 2*N);
         dfdx = new DenseMatrix(2*N, 2*N);
         dfdv = new DenseMatrix(2*N, 2*N);
         deltaxdot = new DenseVector(2*N);
@@ -679,18 +679,16 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
 
         for(int i = 0; i < 2*N; i++)
         {
-            A.set(i, i, 1.0);
+            I.set(i, i, 1.0);
         }
 
-        for(int i = 0; i < state.length; i+=6)
+        for(int i = 0; i < state.length; i+=4)
         {
             int j = i/2;
             x0.set(j, state[i]);
             x0.set(j+1, state[i+1]);
-            x0.set(j+2, state[i+2]);
-            v0.set(j, state[i+3]);
-            v0.set(j+1, state[i+4]);
-            v0.set(j+2, state[i+5]);
+            v0.set(j, state[i+2]);
+            v0.set(j+1, state[i+3]);
         }
 
         for(Spring s: springs)
@@ -703,30 +701,28 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
 
         for(Particle p: particles)
         {
-            f.add(p.index*3, -viscousDamping.getValue() * p.v.x);
-            f.add(p.index*3+1, -viscousDamping.getValue() * p.v.y);
-            f.add(p.index*3+1, gravity.getValue() * p.mass);
+            f.add(p.index*2, -viscousDamping.getValue() * p.v.x);
+            f.add(p.index*2+1, -viscousDamping.getValue() * p.v.y);
+            f.add(p.index*2+1, gravity.getValue() * p.mass);
         }
 
         dfdx.mult(v0, tmp);
-        K.set(A.add(dfdv.scale(-h)).add(dfdx.scale(-h*h)));
+        A.set(I.add(dfdv.scale(-h)).add(dfdx.scale(-h*h)));
         b.set(f.add(tmp.scale(h)).scale(h));
 
-        CG.solve(K, b, deltaxdot, iterations.getValue());
+        CG.solve(A, b, deltaxdot, iterations.getValue());
 
         vNew.set(v0.add(deltaxdot));
         tmp.set(vNew);
         xNew.set(x0.add(tmp.scale(h)));
 
-        for(int i = 0; i < stateOut.length; i+=6)
+        for(int i = 0; i < stateOut.length; i+=4)
         {
             int j = i/2;
             stateOut[i] = xNew.get(j);
             stateOut[i+1] = xNew.get(j+1);
-            stateOut[i+2] = xNew.get(j+2);
-            stateOut[i+3] = vNew.get(j);
-            stateOut[i+4] = vNew.get(j+1);
-            stateOut[i+5] = vNew.get(j+2);
+            stateOut[i+2] = vNew.get(j);
+            stateOut[i+3] = vNew.get(j+1);
         }
     }
 
@@ -790,7 +786,7 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
     public DoubleParameter springStiffness = new DoubleParameter( "spring stiffness", 1, 0, 10000 );
     public DoubleParameter springDamping = new DoubleParameter( "spring damping", 0.1, 0, 50 );
     public DoubleParameter viscousDamping = new DoubleParameter( "viscous damping", 0.1, 0, 10 );
-    public DoubleParameter restitution = new DoubleParameter( "r", 0, 0, 1 );
+    public DoubleParameter restitution = new DoubleParameter( "r", 0.5, 0, 1 );
     public JTextArea comments = new JTextArea("enter comments in control panel");
     public IntParameter iterations = new IntParameter( "iterations", 100, 1, 100 );
     /** controls weather explicit or implicit integration is used */

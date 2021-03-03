@@ -137,11 +137,11 @@ public class Spring implements Serializable {
         }else {
             force.scale( (l-l0)*this.k );
         }
-        f.add(p1.index*3,force.x);
-        f.add(p1.index*3+1,force.y);
+        f.add(p1.index*2,force.x);
+        f.add(p1.index*2+1,force.y);
         force.scale(-1);
-        f.add(p2.index*3,force.x);
-        f.add(p2.index*3+1,force.y);
+        f.add(p2.index*2,force.x);
+        f.add(p2.index*2+1,force.y);
 
         // calculate force from kinetic energy
         force.sub( p2.p, p1.p );
@@ -154,18 +154,18 @@ public class Spring implements Serializable {
         }else {
             force.scale(this.c*rv);
         }
-        f.add(p1.index*3,force.x);
-        f.add(p1.index*3+1,force.y);
+        f.add(p1.index*2,force.x);
+        f.add(p1.index*2+1,force.y);
         force.scale(-1);
-        f.add(p2.index*3,force.x);
-        f.add(p2.index*3+1,force.y);
+        f.add(p2.index*2,force.x);
+        f.add(p2.index*2+1,force.y);
     }
 
     public void addParticle(Matrix mtrx, Particle p1, Particle p2, DenseMatrix tmpM) {
-        mtrx.add(p1.index*3, p2.index*3, tmpM.get(0, 0));
-        mtrx.add(p1.index*3, p2.index*3+1, tmpM.get(0, 1));
-        mtrx.add(p1.index*3+1, p2.index*3, tmpM.get(1, 0));
-        mtrx.add(p1.index*3+1, p2.index*3+1, tmpM.get(1, 1));
+        mtrx.add(p1.index*2, p2.index*2, tmpM.get(0, 0));
+        mtrx.add(p1.index*2, p2.index*2+1, tmpM.get(0, 1));
+        mtrx.add(p1.index*2+1, p2.index*2, tmpM.get(1, 0));
+        mtrx.add(p1.index*2+1, p2.index*2+1, tmpM.get(1, 1));
     }
     
     /**
