@@ -42,7 +42,6 @@ public class ParticleSystem implements SceneGraphNode, Function, Filter {
 
     public List<Particle> particles;
     public List<Spring> springs;
-    private Matrix K;
     private DenseVector x0;
     private DenseVector v0;
     private DenseVector xNew;

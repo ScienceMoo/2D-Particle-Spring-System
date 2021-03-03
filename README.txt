@@ -2,6 +2,7 @@ COMP 559 - Winter 2021 - Assignment 1
 
 Numerical Integration of Particle Systems
 
+
 # Mouse spring interaction
 This is best tested with the default test system 1.
 Very useful for more realistic dragging of particles during simulation.
