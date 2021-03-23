@@ -19,12 +19,14 @@ public class SymplecticEuler implements Integrator {
 
         derivs.derivs(t, p, dpdt);
 
-        for(int i = 0; i < n; i+=4)
+        for(int i = 0; i < n; i+=6)
         {
-            pout[i+2] = p[i+2] + h*dpdt[i+2];
             pout[i+3] = p[i+3] + h*dpdt[i+3];
-            pout[i] = p[i] + h*pout[i+2];
-            pout[i+1] = p[i+1] + h*pout[i+3];
+            pout[i+4] = p[i+4] + h*dpdt[i+4];
+            pout[i+5] = p[i+5] + h*dpdt[i+5];
+            pout[i] = p[i] + h*pout[i+3];
+            pout[i+1] = p[i+1] + h*pout[i+4];
+            pout[i+2] = p[i+2] + h*pout[i+5];
         }
     }
 

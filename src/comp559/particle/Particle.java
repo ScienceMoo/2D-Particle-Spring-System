@@ -4,8 +4,8 @@ import java.io.Serializable;
 import java.util.ArrayList;
 
 import javax.vecmath.Color3f;
-import javax.vecmath.Point2d;
-import javax.vecmath.Vector2d;
+import javax.vecmath.Point3d;
+import javax.vecmath.Vector3d;
 
 /**
  * Particle class that contains particle properties (e.g., mass), 
@@ -27,16 +27,24 @@ public class Particle implements Serializable {
     float size = 10;
     
     double mass = 1;
-        
-    Point2d p = new Point2d();
-    
-    Vector2d v = new Vector2d();
-    
-    Point2d p0 = new Point2d();
-    
-    Vector2d v0 = new Vector2d();
-    
-    Vector2d f = new Vector2d();
+
+    /** Position of the particle */
+    Point3d p = new Point3d();
+
+    /** Velocity of the particle */
+    Vector3d v = new Vector3d();
+
+    /** Initial position of the particle */
+    Point3d p0 = new Point3d();
+
+    /** Initial velocity of the particle */
+    Vector3d v0 = new Vector3d();
+
+    /**
+     * Forces acting on the particle.  Accumulate them here, but
+     * remember to reset them to zero before starting.
+     */
+    Vector3d f = new Vector3d();
 
     /**
      * A list of springs that use this particle.  This list is only needed
@@ -47,44 +55,43 @@ public class Particle implements Serializable {
     
     /**
      * Creates a particle with the given position and velocity
-     * @param x
-     * @param y
-     * @param vx
-     * @param vy
+     * @param p0
+     * @param v0
      */
-    public Particle( double x, double y, double vx, double vy) {
-        p0.set(x,y);
-        v0.set(vx,vy);
+    public Particle( Point3d p0, Vector3d v0 ) {
+        this.p0.set(p0);
+        this.v0.set(v0);
         reset();
     }
 
     /**
      * Creates a particle with the given position and velocity and mass
-     * @param x
-     * @param y
-     * @param vx
-     * @param vy
+     * @param p0
+     * @param v0
+     * @param p_mass
      */
-    public Particle( double x, double y, double vx, double vy, double p_mass) {
-        p0.set(x,y);
-        v0.set(vx,vy);
+    public Particle( Point3d p0, Vector3d v0, double p_mass) {
+        this.p0.set(p0);
+        this.v0.set(v0);
         //TODO: dpi stuff
-        mass = p_mass * 2;
+//        mass = p_mass * 2;
+        mass = p_mass;
         reset();
     }
 
     /**
      * Constructor for invisible particles
-     * @param x
-     * @param y
-     * @param vx
-     * @param vy
+     * @param p0
+     * @param v0
+     * @param p_mass
+     * @param vis
      */
-    public Particle( double x, double y, double vx, double vy, double p_mass, boolean vis) {
-        p0.set(x,y);
-        v0.set(vx,vy);
+    public Particle( Point3d p0, Vector3d v0, double p_mass, boolean vis) {
+        this.p0.set(p0);
+        this.v0.set(v0);
         //TODO: dpi stuff
-        mass = p_mass * 2;
+        mass = p_mass;
+//        mass = p_mass * 2;
         visible = vis;
         pinned = true;
         reset();
@@ -96,7 +103,7 @@ public class Particle implements Serializable {
     public void reset() {
         p.set(p0);
         v.set(v0);
-        f.set(0,0);
+        f.set(0,0,0);
     }
     
     /**
@@ -104,14 +111,14 @@ public class Particle implements Serializable {
      */
     public void clearForce() {
 
-        f.set(0,0);
+        f.set(0,0,0);
     }
     
     /**
      * Adds the given force to this particle
      * @param force
      */
-    public void addForce( Vector2d force ) {
+    public void addForce( Vector3d force ) {
 
         f.add(force);
     }
@@ -122,8 +129,8 @@ public class Particle implements Serializable {
      * @param y
      * @return the distance
      */
-    public double distance( double x, double y ) {
-        Point2d tmp = new Point2d( x, y );
+    public double distance( double x, double y, double z ) {
+        Point3d tmp = new Point3d( x, y, z );
         return tmp.distance(p);
     }
     

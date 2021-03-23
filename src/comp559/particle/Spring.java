@@ -1,6 +1,6 @@
 package comp559.particle;
 
-import javax.vecmath.Vector2d;
+import javax.vecmath.Vector3d;
 
 import no.uib.cipr.matrix.DenseMatrix;
 import no.uib.cipr.matrix.DenseVector;
@@ -81,7 +81,7 @@ public class Spring implements Serializable {
     public void apply() {
         // TODO: Objective 1, FINISH THIS CODE!
 
-        Vector2d force = new Vector2d();
+        Vector3d force = new Vector3d();
         force.sub( p2.p, p1.p );
         double l = force.length();
         force.normalize();
@@ -94,8 +94,8 @@ public class Spring implements Serializable {
         }
 
 
-        Vector2d force2 = new Vector2d();
-        Vector2d v = new Vector2d();
+        Vector3d force2 = new Vector3d();
+        Vector3d v = new Vector3d();
         force2.sub( p2.p, p1.p );
         force2.normalize();
         v.sub(p2.v, p1.v);
@@ -128,7 +128,7 @@ public class Spring implements Serializable {
 
         // same as above except the forces are added differently
 
-        Vector2d force = new Vector2d();
+        Vector3d force = new Vector3d();
 
         force.sub( p2.p, p1.p );
         double l = force.length();
@@ -138,16 +138,18 @@ public class Spring implements Serializable {
         }else {
             force.scale( (l-l0)*this.k );
         }
-        f.add(p1.index*2,force.x);
-        f.add(p1.index*2+1,force.y);
+        f.add(p1.index*3,force.x);
+        f.add(p1.index*3+1,force.y);
+        f.add(p1.index*3+2,force.z);
         force.scale(-1);
-        f.add(p2.index*2,force.x);
-        f.add(p2.index*2+1,force.y);
+        f.add(p2.index*3,force.x);
+        f.add(p2.index*3+1,force.y);
+        f.add(p2.index*3+2,force.z);
 
         // calculate force from kinetic energy
         force.sub( p2.p, p1.p );
         force.normalize();
-        Vector2d v = new Vector2d();
+        Vector3d v = new Vector3d();
         v.sub(p2.v, p1.v);
         double rv = force.dot(v);
         if (this.useDefaultC) {
@@ -155,18 +157,22 @@ public class Spring implements Serializable {
         }else {
             force.scale(this.c*rv);
         }
-        f.add(p1.index*2,force.x);
-        f.add(p1.index*2+1,force.y);
+        f.add(p1.index*3,force.x);
+        f.add(p1.index*3+1,force.y);
+        f.add(p1.index*3+2,force.z);
         force.scale(-1);
-        f.add(p2.index*2,force.x);
-        f.add(p2.index*2+1,force.y);
+        f.add(p2.index*3,force.x);
+        f.add(p2.index*3+1,force.y);
+        f.add(p2.index*3+2,force.z);
     }
 
     public void addParticle(Matrix mtrx, Particle p1, Particle p2, DenseMatrix tmpM) {
-        mtrx.add(p1.index*2, p2.index*2, tmpM.get(0, 0));
-        mtrx.add(p1.index*2, p2.index*2+1, tmpM.get(0, 1));
-        mtrx.add(p1.index*2+1, p2.index*2, tmpM.get(1, 0));
-        mtrx.add(p1.index*2+1, p2.index*2+1, tmpM.get(1, 1));
+        mtrx.add(p1.index*3, p2.index*3, tmpM.get(0, 0));
+        mtrx.add(p1.index*3, p2.index*3+1, tmpM.get(0, 1));
+        mtrx.add(p1.index*3, p2.index*3+2, tmpM.get(0, 2));
+        mtrx.add(p1.index*3+1, p2.index*3, tmpM.get(1, 0));
+        mtrx.add(p1.index*3+1, p2.index*3+1, tmpM.get(1, 1));
+        mtrx.add(p1.index*3+1, p2.index*3+2, tmpM.get(1, 2));
     }
     
     /**
@@ -177,20 +183,22 @@ public class Spring implements Serializable {
         // TODO: Objective 8, FINISH THIS CODE... necessary for backward euler integration
         // dfdx = -k * ((1 - l0/|l|)(I - l * l^T) + l * l^T)
 
-        DenseVector tmpV = new DenseVector(2);
-        DenseMatrix tmpM = new DenseMatrix(2,2);
-        DenseMatrix I = new DenseMatrix(2,2);
+        DenseVector tmpV = new DenseVector(3);
+        DenseMatrix tmpM = new DenseMatrix(3,3);
+        DenseMatrix I = new DenseMatrix(3,3);
 
-        Vector2d l = new Vector2d(p1.p.x - p2.p.x, p1.p.y - p2.p.y);
+        Vector3d l = new Vector3d(p1.p.x - p2.p.x, p1.p.y - p2.p.y, p1.p.z - p2.p.z);
 
         tmpV.set(0,l.x/l.length());
         tmpV.set(1,l.y/l.length());
+        tmpV.set(2,l.z/l.length());
 
         tmpM.rank1(tmpV);
         I.set(tmpM);
         I.scale(-1);
         I.add(0, 0, 1.0);
         I.add(1, 1, 1.0);
+        I.add(2, 2, 1.0);
 
         I.scale(1 - l0/l.length());
 
@@ -219,13 +227,14 @@ public class Spring implements Serializable {
         // TODO: Objective 8, FINISH THIS CODE... necessary for backward Euler integration
         // dfdv = -c * l * l^T
 
-        DenseVector tmpV = new DenseVector(2);
-        DenseMatrix tmpM = new DenseMatrix(2,2);
+        DenseVector tmpV = new DenseVector(3);
+        DenseMatrix tmpM = new DenseMatrix(3,3);
 
-        Vector2d l = new Vector2d(p1.p.x - p2.p.x, p1.p.y - p2.p.y);
+        Vector3d l = new Vector3d(p1.p.x - p2.p.x, p1.p.y - p2.p.y, p1.p.z - p2.p.z);
 
         tmpV.set(0,l.x/l.length());
         tmpV.set(1,l.y/l.length());
+        tmpV.set(2,l.z/l.length());
 
         tmpM.rank1(tmpV);
         if (this.useDefaultC) {

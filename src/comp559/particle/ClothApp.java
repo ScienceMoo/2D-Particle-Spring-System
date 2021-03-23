@@ -7,13 +7,8 @@ import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.io.File;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import com.jogamp.opengl.GL;
@@ -22,7 +17,9 @@ import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.gl2.GLUT;
 
 import javax.swing.*;
+import javax.vecmath.Point3d;
 import javax.vecmath.Vector2d;
+import javax.vecmath.Vector3d;
 
 import mintools.parameters.BooleanParameter;
 import mintools.parameters.DoubleParameter;
@@ -30,9 +27,7 @@ import mintools.parameters.IntParameter;
 import mintools.swing.FileSelect;
 import mintools.swing.HorizontalFlowPanel;
 import mintools.swing.VerticalFlowPanel;
-import mintools.viewer.EasyViewer;
-import mintools.viewer.Interactor;
-import mintools.viewer.SceneGraphNode;
+import mintools.viewer.*;
 
 
 /**
@@ -42,7 +37,7 @@ import mintools.viewer.SceneGraphNode;
  * to numerically integrate the system forward.
  * @author kry
  */
-public class A1App implements SceneGraphNode, Interactor {
+public class ClothApp implements SceneGraphNode, Interactor {
 
     private EasyViewer ev;
 
@@ -59,19 +54,19 @@ public class A1App implements SceneGraphNode, Interactor {
      * @param args
      */
     public static void main(String[] args) {
-        new A1App();        
+        new ClothApp();
     }
     
     /**
      * Creates the application / scene instance
      */
-    public A1App() {
+    public ClothApp() {
         system = new ParticleSystem();
         system.integrator = forwardEuler;
 
         // create the simulation viewing window
-        // 640 by 360
-        ev = new EasyViewer( "COMP 559 - A1 Particle System", this, new Dimension(640,600), new Dimension(640,600) );
+        // used to be 640 by 360 but i changed it, doesn't really matter
+        ev = new EasyViewer( "COMP 559 - A1 Particle System - 3D version", this, new Dimension(640,600), new Dimension(640,600) );
         ev.addInteractor(this);
     }
      
@@ -113,9 +108,12 @@ public class A1App implements SceneGraphNode, Interactor {
         menuBar.add(menu);
         ev.frame.setJMenuBar(menuBar);
 
-        system.loadSystem( "./savedSystems/spider_ball.xlsx" );
+//        system.loadSystem( "./savedSystems/spider_ball.xlsx" );
     }
-        
+
+    private FancyAxis fa = new FancyAxis(0.5);
+    private BoxRoom boxRoom = new BoxRoom();
+
     @Override
     public void display(GLAutoDrawable drawable) {
         GL2 gl = drawable.getGL().getGL2();
@@ -126,90 +124,81 @@ public class A1App implements SceneGraphNode, Interactor {
                 system.advanceTime( stepsize.getValue() / substeps.getValue() );                
             }
         }
-        
+
         system.display( drawable );
-        
-        if ( mouseDown ) {
-            if ( ! grabbed ) {
-                if ( ! run.getValue() ) {
-                	// check particle pair line
-                	if ( p1 != null && p2 != null ) { 
-                		final Vector2d v = new Vector2d();
-	                	v.sub( p1.p, p2.p );
-	                	v.normalize();
-	                	double d = Math.abs( v.x*(p1.p.y - ycurrent) - v.y*(p1.p.x - xcurrent) );
-	                	closeToParticlePairLine = d < (5 * p1.mass);
-                	}
-                	if ( closeToParticlePairLine ) {
-                		gl.glColor4d(0,1,1,.5);
-                        //TODO: dpi stuff
-                        gl.glLineWidth(2 * 3f);
-                        gl.glBegin( GL.GL_LINES );
-                        //TODO: dpi stuff
-//                        gl.glVertex2d( dpi_x_factor * p1.p.x, dpi_y_factor * p1.p.y );
-//                        gl.glVertex2d( dpi_x_factor * p2.p.x, dpi_y_factor * p2.p.y );
-                        gl.glVertex2d( p1.p.x, p1.p.y );
-                        gl.glVertex2d( p2.p.x, p2.p.y );
-                        gl.glEnd();
-                	} else {
-	                    gl.glPointSize( 5f );
-	                    gl.glLineWidth( 2f );
-	                    if ( ! run.getValue() ) {   
-	                        //TODO: dpi stuff
-//	                        drawLineToParticle( drawable, 2 * xcurrent, 2 * ycurrent, p1, d1 );
-//	                        drawLineToParticle( drawable, 2 * xcurrent, 2 * ycurrent, p2, d2 );
-	                        drawLineToParticle( drawable, xcurrent, ycurrent, p1, d1 );
-	                        drawLineToParticle( drawable, xcurrent, ycurrent, p2, d2 );
-	                    }
-                	}
-                }
-            } else {
-                gl.glPointSize( (float) (p1.mass * 15) );
-                gl.glColor4d(0,1,0,0.95);
-                gl.glBegin( GL.GL_POINTS );
-                gl.glVertex2d( p1.p.x, p1.p.y );
-                gl.glEnd();        
-            }
-        } else {
-            if ( mouseInWindow ) {
-                //TODO: dpi stuff
-//                findCloseParticles( 2 * xcurrent, 2 * ycurrent );
-                findCloseParticles( xcurrent, ycurrent );
-                if ( p1 != null && d1 < (5 * p1.mass) ) {
-                    gl.glPointSize( (float) (p1.mass * 15) );
-                    gl.glColor4d(0,1,0,0.95);
-                    gl.glBegin( GL.GL_POINTS );
-                    //TODO: dpi stuff
-                    gl.glVertex2d( p1.p.x, p1.p.y );
-                    gl.glEnd();        
-                } else if ( p1 != null && p2 != null ) {
-                	final Vector2d v = new Vector2d();
-                	v.sub( p1.p, p2.p );
-                	v.normalize();
-                	double d = Math.abs( v.x*(p1.p.y - ycurrent) - v.y*(p1.p.x - xcurrent) );
-                	closeToParticlePairLine = d < (5 * p1.mass);
-                	if ( closeToParticlePairLine ) {
-                        gl.glColor4d(0,1,1,.5);
-                        //TODO: dpi stuff
-                        gl.glLineWidth(2 * 3f);
-                        gl.glBegin( GL.GL_LINES );
-                        //TODO: dpi stuff
-//                        gl.glVertex2d( dpi_x_factor * p1.p.x, dpi_y_factor * p1.p.y );
-//                        gl.glVertex2d( dpi_x_factor * p2.p.x, dpi_y_factor * p2.p.y );
-                        gl.glVertex2d( p1.p.x, p1.p.y );
-                        gl.glVertex2d( p2.p.x, p2.p.y );
-                        gl.glEnd();
-                    }
-                }
-            }
-        }
+
+
+        // TODO: fix all this
+//        if ( mouseDown ) {
+//            if ( ! grabbed ) {
+//                if ( ! run.getValue() ) {
+//                	// check particle pair line
+//                	if ( p1 != null && p2 != null ) {
+//                		final Vector2d v = new Vector2d();
+//	                	v.sub( p1.p, p2.p );
+//	                	v.normalize();
+//	                	double d = Math.abs( v.x*(p1.p.y - ycurrent) - v.y*(p1.p.x - xcurrent) );
+//	                	closeToParticlePairLine = d < (5 * p1.mass);
+//                	}
+//                	if ( closeToParticlePairLine ) {
+//                		gl.glColor4d(0,1,1,.5);
+//                        gl.glLineWidth(2 * 3f);
+//                        gl.glBegin( GL.GL_LINES );
+//                        gl.glVertex2d( p1.p.x, p1.p.y );
+//                        gl.glVertex2d( p2.p.x, p2.p.y );
+//                        gl.glEnd();
+//                	} else {
+//	                    gl.glPointSize( 5f );
+//	                    gl.glLineWidth( 2f );
+//	                    if ( ! run.getValue() ) {
+//	                        drawLineToParticle( drawable, xcurrent, ycurrent, p1, d1 );
+//	                        drawLineToParticle( drawable, xcurrent, ycurrent, p2, d2 );
+//	                    }
+//                	}
+//                }
+//            } else {
+//                gl.glPointSize( (float) (p1.mass * 15) );
+//                gl.glColor4d(0,1,0,0.95);
+//                gl.glBegin( GL.GL_POINTS );
+//                gl.glVertex2d( p1.p.x, p1.p.y );
+//                gl.glEnd();
+//            }
+//        } else {
+//            if ( mouseInWindow ) {
+//                findCloseParticles( xcurrent, ycurrent );
+//                if ( p1 != null && d1 < (5 * p1.mass) ) {
+//                    gl.glPointSize( (float) (p1.mass * 15) );
+//                    gl.glColor4d(0,1,0,0.95);
+//                    gl.glBegin( GL.GL_POINTS );
+//                    gl.glVertex2d( p1.p.x, p1.p.y );
+//                    gl.glEnd();
+//                } else if ( p1 != null && p2 != null ) {
+//                	final Vector2d v = new Vector2d();
+//                	v.sub( p1.p, p2.p );
+//                	v.normalize();
+//                	double d = Math.abs( v.x*(p1.p.y - ycurrent) - v.y*(p1.p.x - xcurrent) );
+//                	closeToParticlePairLine = d < (5 * p1.mass);
+//                	if ( closeToParticlePairLine ) {
+//                        gl.glColor4d(0,1,1,.5);
+//                        gl.glLineWidth(2 * 3f);
+//                        gl.glBegin( GL.GL_LINES );
+//                        gl.glVertex2d( p1.p.x, p1.p.y );
+//                        gl.glVertex2d( p2.p.x, p2.p.y );
+//                        gl.glEnd();
+//                    }
+//                }
+//            }
+//        }
 	        
         String text = system.toString() + "\n" + 
                       "h = " + stepsize.getValue() + "\n" +
                       "substeps = " + substeps.getValue() + "\n" +
                       "computeTime = " + system.computeTime;        
         EasyViewer.printTextLines( drawable, text );
-        EasyViewer.endOverlay(drawable);    
+        EasyViewer.endOverlay(drawable);
+
+        if ( drawAxis.getValue() ) { fa.draw(gl); }
+        boxRoom.display(drawable);
 
         if ( run.getValue() || stepped ) {
             stepped = false;        
@@ -247,36 +236,12 @@ public class A1App implements SceneGraphNode, Interactor {
      * frame should be recorded if recording is enabled
      */
     private boolean stepped = false;
-        
-    /**
-     * draws a line from the given point to the given particle
-     * @param drawable
-     * @param x
-     * @param y
-     * @param p
-     * @param d
-     */
-    private void drawLineToParticle( GLAutoDrawable drawable, double x, double y, Particle p, double d ) {
-
-        if ( p == null ) return;
-        if ( d > maxDist ) return;
-        
-        GL2 gl = drawable.getGL().getGL2();
-        
-        double col = d < minDist ? 1 : (maxDist-d) / (maxDist-minDist);
-        gl.glColor4d( 1-col,0,col,0.75f);
-        gl.glBegin(GL.GL_LINES);
-        gl.glVertex2d( x, y );
-        //TODO: dpi stuff
-//        gl.glVertex2d( dpi_x_factor * p.p.x, dpi_y_factor * p.p.y );
-        gl.glVertex2d( p.p.x, p.p.y );
-        gl.glEnd();    
-    }
 
     private JTextField saveFileName = new JTextField("testSystem.xlsx", 16);
     private BooleanParameter run = new BooleanParameter( "simulate", false );
     private DoubleParameter stepsize = new DoubleParameter( "step size", 0.05, 1e-5, 1 );
     private IntParameter substeps = new IntParameter( "sub steps", 1, 1, 100);
+    private BooleanParameter drawAxis = new BooleanParameter( "draw axis (to help get your bearings in 3D)", true );
 
     @Override
     public JPanel getControls() {
@@ -294,7 +259,7 @@ public class A1App implements SceneGraphNode, Interactor {
             public void actionPerformed(ActionEvent e) {
                 File f = FileSelect.select("xlsx", "", "load", "./savedSystems", true );
                 if ( f != null ) {
-                    system.loadSystem( f.getPath() );
+//                    system.loadSystem( f.getPath() );
                 }
             }
         });
@@ -308,7 +273,7 @@ public class A1App implements SceneGraphNode, Interactor {
         saveButton.addActionListener( new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                system.saveSystem(saveFileName.getText());
+//                system.saveSystem(saveFileName.getText());
             }
         });
 
@@ -317,7 +282,7 @@ public class A1App implements SceneGraphNode, Interactor {
         create1.addActionListener( new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                system.createSystem(1);
+//                system.createSystem(1);
             }
         });
         
@@ -326,7 +291,7 @@ public class A1App implements SceneGraphNode, Interactor {
         create2.addActionListener( new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                system.createSystem(2);
+//                system.createSystem(2);
             }
         });
         
@@ -335,7 +300,7 @@ public class A1App implements SceneGraphNode, Interactor {
         create3.addActionListener( new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                system.createSystem(3);
+//                system.createSystem(3);
             }
         });
         
@@ -367,6 +332,7 @@ public class A1App implements SceneGraphNode, Interactor {
         vfp.add( stepsize.getSliderControls(true) );
         vfp.add( substeps.getControls() );
         vfp.add( system.getControls() );
+        vfp.add( drawAxis.getControls());
         
         return vfp.getPanel();
     }
@@ -389,13 +355,15 @@ public class A1App implements SceneGraphNode, Interactor {
         d2 = 0;
         if ( particles.size() > 0 ) {
             for ( Particle p : particles ) {
-                double d = p.distance( x, y );
-                if ( p1 == null || d < d1 ) {
-                    p2 = p1; d2 = d1; p1 = p; d1 = d;
-                } else if ( p2 == null || d < d2 ) {
-                    p2 = p; d2 = d;
+                for ( int z = -1; z < 1; z++) {
+                    double d = p.distance( x, y, z );
+                    if ( p1 == null || d < d1 ) {
+                        p2 = p1; d2 = d1; p1 = p; d1 = d;
+                    } else if ( p2 == null || d < d2 ) {
+                        p2 = p; d2 = d;
+                    }
                 }
-            }      
+            }
         }
     }  
     
@@ -423,6 +391,8 @@ public class A1App implements SceneGraphNode, Interactor {
                 //TODO: dpi stuff
                 xcurrent = (int) (2 * e.getPoint().x);
                 ycurrent = (int) (2 * e.getPoint().y);
+//                xcurrent = e.getPoint().x;
+//                ycurrent = e.getPoint().y;
                 p_current.set(xcurrent, ycurrent);
 
                 if ( grabbed ) {
@@ -431,17 +401,19 @@ public class A1App implements SceneGraphNode, Interactor {
 
                         if ( !moved ) {
                             // create an invisible mouse particle to represent the mouse
-                            p2 = system.createMouseParticle(xcurrent, ycurrent, 0, 0);
+                            Point3d point = new Point3d(xcurrent, ycurrent, 0);
+                            Vector3d zero = new Vector3d(0,0,0);
+                            p2 = system.createMouseParticle(point, zero);
                             system.createMouseSpring(p1, p2, k, c, l0);
                             moved = true;
                         } else {
-                            p2.p.set( xcurrent, ycurrent );
+                            p2.p.set( xcurrent, ycurrent, 0 );
                         }
 
                     } else {
                         p1.pinned = true;
-                        p1.p.set( xcurrent, ycurrent );
-                        p1.v.set( 0, 0 );
+                        p1.p.set( xcurrent, ycurrent, 0 );
+                        p1.v.set( 0, 0, 0 );
                         if ( ! run.getValue() ) {
                             p1.p0.set( p1.p );
                             p1.v0.set( p1.v );
@@ -451,8 +423,6 @@ public class A1App implements SceneGraphNode, Interactor {
                         }
                     }
                 } else {
-                    //TODO: dpi stuff
-//                    findCloseParticles( 2 * xcurrent, 2 * ycurrent );
                     findCloseParticles( xcurrent, ycurrent );
                 }
             }
@@ -465,75 +435,81 @@ public class A1App implements SceneGraphNode, Interactor {
 //                ycurrent = e.getPoint().y;
             }
         } );
-        component.addMouseListener( new MouseListener() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                // do nothing
-                mouseInWindow = true;
-            }
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                mouseInWindow = true;
-            }
-            @Override
-            public void mouseExited(MouseEvent e) {
-                // clear the potential spring lines we're drawing
-                mouseInWindow = false;
-            }
-            @Override
-            public void mousePressed(MouseEvent e) {
-                mouseInWindow = true;
-                //TODO: dpi stuff
-                xcurrent = (int) (2 * e.getPoint().x);
-                ycurrent = (int) (2 * e.getPoint().y);
-//                xdown = e.getPoint().x;
-//                ydown = e.getPoint().y;
-//                xcurrent = xdown;
-//                ycurrent = ydown;
-                mouseDown = true;
-                //TODO: dpi stuff
-//                findCloseParticles( 2 * xcurrent, 2 * ycurrent );
-                findCloseParticles( xcurrent, ycurrent );
-                if ( p1 != null && d1 < (5 * p1.mass) ) {
-                    wasPinned = p1.pinned;
-                    grabbed = true;
-                    p1.p.set( xcurrent, ycurrent );
-                    p1.v.set( 0, 0 ); 
-                }
-            }
-            @Override
-            public void mouseReleased(MouseEvent e) {
-                mouseDown = false;
-                
-                	if ( ! grabbed && ! run.getValue() ) {
-                	    //TODO: dpi stuff
-	                    double x = 2 * e.getPoint().x;
-	                    double y = 2 * e.getPoint().y;
-	                    // were we within the threshold of a spring?
-	                    if ( closeToParticlePairLine ) {
-	                    	if ( !system.removeSpring( p1, p2 ) ) {
-	                			system.createSpring( p1, p2 );
-	                		}
-	                    } else {
-		                    Particle p = system.createParticle( x, y, 0, 0);
-		                    if ( p1 != null && d1 < maxDist ) {
-		                        system.createSpring( p, p1 );
-		                    }
-		                    if ( p2 != null && d2 < maxDist ) {
-		                        system.createSpring( p, p2 );
-		                    }
-	                    }
-	                } else if ( grabbed && p1 != null && ( !moved ) ) {
-	                	p1.pinned = ! wasPinned;
-	                } else if ( grabbed && p1 != null) {
-                	    system.removeSpring(p1, p2);
-                	    system.remove(p2);
-                    }
-                
-                grabbed = false;
-                moved = false;
-            }
-        } );
+//        component.addMouseListener( new MouseListener() {
+//            @Override
+//            public void mouseClicked(MouseEvent e) {
+//                // do nothing
+//                mouseInWindow = true;
+//            }
+//            @Override
+//            public void mouseEntered(MouseEvent e) {
+//                mouseInWindow = true;
+//            }
+//            @Override
+//            public void mouseExited(MouseEvent e) {
+//                // clear the potential spring lines we're drawing
+//                mouseInWindow = false;
+//            }
+//            @Override
+//            public void mousePressed(MouseEvent e) {
+//                mouseInWindow = true;
+//                //TODO: dpi stuff
+//                xcurrent = (int) (2 * e.getPoint().x);
+//                ycurrent = (int) (2 * e.getPoint().y);
+////                xcurrent = e.getPoint().x;
+////                ycurrent = e.getPoint().y;
+//                mouseDown = true;
+//                findCloseParticles( xcurrent, ycurrent );
+//                if ( p1 != null && d1 < (5 * p1.mass) ) {
+//                    wasPinned = p1.pinned;
+//                    grabbed = true;
+//                    p1.p.set( xcurrent, ycurrent, 0 );
+//                    p1.v.set( 0, 0, 0 );
+//                }
+//            }
+//            @Override
+//            public void mouseReleased(MouseEvent e) {
+//                mouseDown = false;
+//
+//                	if ( ! grabbed && ! run.getValue() ) {
+//                	    //TODO: dpi stuff
+//	                    double x = 2 * e.getPoint().x;
+//	                    double y = 2 * e.getPoint().y;
+////	                    double x = e.getPoint().x;
+////	                    double y = e.getPoint().y;
+//	                    // were we within the threshold of a spring?
+//	                    if ( closeToParticlePairLine ) {
+//	                    	if ( !system.removeSpring( p1, p2 ) ) {
+//	                			system.createSpring( p1, p2 );
+//	                		}
+//	                    } else {
+//                            Vector3d zero = new Vector3d(0,0,0);
+//		                    if ( p1 != null && d1 < maxDist ) {
+//                                Point3d point = new Point3d(x, y, p1.p.z);
+//                                Particle p = system.createParticle( point, zero);
+//		                        system.createSpring( p, p1 );
+//		                    }
+//		                    else if ( p2 != null && d2 < maxDist ) {
+//                                Point3d point = new Point3d(x, y, p2.p.z);
+//                                Particle p = system.createParticle( point, zero);
+//		                        system.createSpring( p, p2 );
+//		                    }
+//		                    else {
+//                                Point3d point = new Point3d(x, y, 0);
+//                                system.createParticle( point, zero);
+//                            }
+//	                    }
+//	                } else if ( grabbed && p1 != null && ( !moved ) ) {
+//	                	p1.pinned = ! wasPinned;
+//	                } else if ( grabbed && p1 != null) {
+//                	    system.removeSpring(p1, p2);
+//                	    system.remove(p2);
+//                    }
+//
+//                grabbed = false;
+//                moved = false;
+//            }
+//        } );
         component.addKeyListener( new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
@@ -592,8 +568,6 @@ public class A1App implements SceneGraphNode, Interactor {
                     ev.stop();
                 }
                 else if ( e.getKeyCode() == KeyEvent.VK_DELETE ) {
-                    //TODO: dpi stuff
-//                    findCloseParticles( 2 * xcurrent, 2 * ycurrent );
                     findCloseParticles( xcurrent, ycurrent );
                     if ( p1 != null && d1 < (5 * p1.mass) ) {
                 		system.remove( p1 );
@@ -601,7 +575,7 @@ public class A1App implements SceneGraphNode, Interactor {
                 }
                 else if ( e.getKeyCode() == KeyEvent.VK_Z ) {
                 	for ( Particle p : system.getParticles() ) {
-                		p.v.set(0,0);
+                		p.v.set(0,0,0);
                 	}
                 }
                 // enter : record
